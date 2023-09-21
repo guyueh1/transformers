@@ -579,16 +579,28 @@ class LlamaModel(LlamaPreTrainedModel):
 
             if self.gradient_checkpointing and self.training:
 
-                def create_custom_forward(module):
-                    def custom_forward(*inputs):
-                        # None for past_key_value
-                        return module(*inputs, output_attentions, None)
-
-                    return custom_forward
-
-                layer_outputs = torch.utils.checkpoint.checkpoint(
-                    create_custom_forward(decoder_layer),
-                    hidden_states,
+                def create_attn_fwd(_decoder_layer):
+                    def attn_forward(*inputs):
+                        hidden_states, attention_mask, position_ids, = inputs
+                        residual = hidden_states
+                        hidden_states, self_attn_weights, present_key_value = _decoder_layer.self_attn(
+                            hidden_states=hidden_states,
+                            attention_mask=attention_mask,
+                            position_ids=position_ids,
+                            past_key_value=None,
+                            output_attentions=output_attentions,
+                            use_cache=None,
+                        )
+                        hidden_states = residual + hidden_states
+                        outputs = (hidden_states,)
+                        if output_attentions:
+                            outputs += (self_attn_weights,)
+                        return outputs
+                    return attn_forward
+                
+                attn_outputs = torch.utils.checkpoint.checkpoint(
+                    create_attn_fwd(decoder_layer),
+                    hidden_states, 
                     attention_mask,
                     position_ids,
                     None,
