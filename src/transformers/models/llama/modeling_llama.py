@@ -603,8 +603,30 @@ class LlamaModel(LlamaPreTrainedModel):
                     hidden_states, 
                     attention_mask,
                     position_ids,
-                    None,
                 )
+
+                hidden_states = attn_outputs[0]
+                residual = hidden_states
+                hidden_states = decoder_layer.post_attention_layernorm(hidden_states)
+                hidden_states = decoder_layer.mlp(hidden_states)
+                hidden_states = residual + hidden_states
+                layer_outputs = (hidden_states, ) + attn_outputs[1:]
+
+
+                # def create_custom_forward(module):
+                #     def custom_forward(*inputs):
+                #         # None for past_key_value
+                #         return module(*inputs, output_attentions, None)
+
+                #     return custom_forward
+
+                # layer_outputs = torch.utils.checkpoint.checkpoint(
+                #     create_custom_forward(decoder_layer),
+                #     hidden_states,
+                #     attention_mask,
+                #     position_ids,
+                #     None,
+                # )
             else:
                 layer_outputs = decoder_layer(
                     hidden_states,
