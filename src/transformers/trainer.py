@@ -1888,6 +1888,9 @@ class Trainer:
                 else:
                     self.control = self.callback_handler.on_substep_end(args, self.state, self.control)
 
+                if total_batched_samples == 1:
+                    self.timer_start = time.time()
+
                 if self.control.should_epoch_stop or self.control.should_training_stop:
                     break
             if step < 0:
@@ -1912,6 +1915,12 @@ class Trainer:
                     )
             if self.control.should_training_stop:
                 break
+
+        
+        elapsed_time = time.time() - self.timer_start
+        elapsed_iterations = total_batched_samples - 1
+        print("Elapsed time: %.4f elapsed iterations %d time per iteration %f s/it" % 
+              (elapsed_time, elapsed_iterations, elapsed_time/elapsed_iterations))
 
         if args.past_index and hasattr(self, "_past"):
             # Clean the state at the end of training
